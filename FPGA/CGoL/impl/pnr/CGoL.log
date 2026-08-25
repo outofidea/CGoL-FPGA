@@ -1,0 +1,26 @@
+Reading netlist file: "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/gwsynthesis/CGoL.vg"
+Parsing netlist file "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/gwsynthesis/CGoL.vg" completed
+Processing netlist completed
+Running placement......
+[10%] Placement Phase 0 completed
+[20%] Placement Phase 1 completed
+[30%] Placement Phase 2 completed
+[50%] Placement Phase 3 completed
+Running routing......
+[60%] Routing Phase 0 completed
+[70%] Routing Phase 1 completed
+[90%] Routing Phase 3 completed
+Running timing analysis......
+[95%] Timing analysis completed
+Placement and routing completed
+Bitstream generation in progress......
+Bitstream generation completed
+Running power analysis......
+[100%] Power analysis completed
+Generate file "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/pnr/CGoL.power.html" completed
+Generate file "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/pnr/CGoL.pin.html" completed
+Generate file "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/pnr/CGoL.rpt.html" completed
+Generate file "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/pnr/CGoL.rpt.txt" completed
+Generate file "/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/impl/pnr/CGoL.tr.html" completed
+Tue Aug 25 20:31:49 2026
+

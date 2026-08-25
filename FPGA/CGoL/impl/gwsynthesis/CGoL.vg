@@ -1,0 +1,75 @@
+//
+//Written by GowinSynthesis
+//Tool Version "V1.9.12"
+//Tue Aug 25 20:31:47 2026
+
+//Source file index table:
+//file0 "\/mnt/sehc/realmanlyhdlstuff/CGoL/FPGA/CGoL/src/state.sv"
+`timescale 100 ps/100 ps
+module state (
+  rst,
+  calc_clk,
+  cell_addr,
+  cell_rw,
+  calc_done,
+  cell_state,
+  valid,
+  screen_clk,
+  screen_out_cell_addr,
+  screen_out_cell_state,
+  screen_out_valid,
+  presentable_buffer
+)
+;
+input rst;
+input calc_clk;
+input [17:0] cell_addr;
+input cell_rw;
+input calc_done;
+output cell_state;
+output valid;
+input screen_clk;
+input [17:0] screen_out_cell_addr;
+output screen_out_cell_state;
+output screen_out_valid;
+output [1:0] presentable_buffer;
+wire VCC;
+wire GND;
+  TBUF cell_state_s0 (
+    .O(cell_state),
+    .I(GND),
+    .OEN(VCC) 
+);
+  TBUF valid_s0 (
+    .O(valid),
+    .I(GND),
+    .OEN(VCC) 
+);
+  TBUF screen_out_cell_state_s0 (
+    .O(screen_out_cell_state),
+    .I(GND),
+    .OEN(VCC) 
+);
+  TBUF screen_out_valid_s0 (
+    .O(screen_out_valid),
+    .I(GND),
+    .OEN(VCC) 
+);
+  OBUF presentable_buffer_0_obuf (
+    .O(presentable_buffer[0]),
+    .I(GND) 
+);
+  OBUF presentable_buffer_1_obuf (
+    .O(presentable_buffer[1]),
+    .I(GND) 
+);
+  VCC VCC_cZ (
+    .V(VCC)
+);
+  GND GND_cZ (
+    .G(GND)
+);
+  GSR GSR (
+    .GSRI(VCC) 
+);
+endmodule /* state */
