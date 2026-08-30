@@ -1,107 +1,201 @@
+// `default_nettype none
 import cell_address_package::*;
 module state #(
-    parameter WIDTH       = 420,
-    parameter HEIGHT      = 270,
-    parameter WIDTH_BITS  = $clog2(WIDTH),
-    parameter HEIGHT_BITS = $clog2(HEIGHT)
+    parameter WIDTH  = 420,
+    parameter HEIGHT = 270
 ) (
-    input logic clk,
+    input logic calc_clk,
+    input logic display_clk,
     input logic rst,
 
-    input  cell_address_class#(WIDTH, HEIGHT)::cell_address calc_cell_addr,
-    input  logic                                            calc_cell_re,
-    input  logic                                            calc_done,
-    output logic                                            cell_state,
-    output logic                                            valid,
+    input  cell_address_class#()::cell_address calc_cell_addr,
+    input  logic                               calc_we,
+    input  logic                               calc_done,
+    input  logic                               calc_dat_in,
+    output logic                               calc_dat_out,
+    output logic                               ready,
+    output logic                               valid,
 
-    input  cell_address_class#(WIDTH, HEIGHT)::cell_address screen_out_cell_addr,
-    output logic                                            screen_out_cell_state,
-    output logic                                            screen_out_valid,
 
-    output logic [1:0] presentable_buffer  //0 is buf1, 1 is buf2
+    input  cell_address_class#()::cell_address display_out_cell_addr,
+    input  logic                               display_buf_change_ack,
+    output logic                               display_buf_change_ready,
+    output logic                               display_out_cell_state,
+    output logic                               display_out_valid
 
 );
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            presentable_buffer = '0;
-        end
-    end
 
-    logic
-        mem_array_1_rst,
-        mem_array_1_calc_clk,
-        mem_array_1_calc_we,
-        mem_array_1_calc_addr,
-        mem_array_1_calc_data_in,
-        mem_array_1_calc_data_out,
+    //? Buffer management follows calculation clock (as its the fastest (should be))
 
-        mem_array_1_display_clk,
-        mem_array_1_display_addr,
-        mem_array_1_display_data_out;
+    logic current_display_buffer;
 
-    logic buffer1_valid;
+    logic next_buffer_ready;
 
-    //BUFFER 1 
-    logic mem_array_1[WIDTH + HEIGHT -1 : 0];
+    logic buf1_calc_we;
+    cell_address_class #()::cell_address buf1_calc_addr;
+    logic buf1_calc_data_in;
+    logic buf1_calc_data_out;
+    cell_address_class #()::cell_address buf1_display_addr;
+    logic buf1_display_data_out;
 
-    always_ff @(posedge mem_array_1_calc_clk) begin
-        if (rst) begin
-            mem_array_1_calc_data_out <= 0;
-        end else begin
-            if (!mem_array_1_calc_we) begin : mem_array1_calc_read
-                mem_array_1_calc_data_out <= mem_array_1[mem_array_1_calc_addr];
-            end else begin : mem_array1_calc_write
-                mem_array_1[mem_array_1_calc_addr] <= mem_array_1_calc_data_in;
+
+    logic buf2_calc_we;
+    cell_address_class #()::cell_address buf2_calc_addr;
+    logic buf2_calc_data_in;
+    logic buf2_calc_data_out;
+    cell_address_class #()::cell_address buf2_display_addr;
+    logic buf2_display_data_out;
+
+
+    typedef enum {
+        INIT,
+        WAIT_CALCULATION,  //when next buf not ready
+        WAIT_DISPLAY  // when at least 1 buffer ready
+    } BUFFER_STATE_e;
+
+    BUFFER_STATE_e state, state_next;
+
+    // always_ff @(posedge calc_clk) begin
+    //     if (rst) begin
+    //         state <= INIT;
+    //     end else begin
+    //         state <= state_next;
+    //     end
+    // end
+
+
+    always_ff @(posedge calc_clk) begin
+        unique case (state)
+
+            INIT: begin
+                current_display_buffer <= 0;
             end
-        end
 
-    end
-
-    always_ff @(posedge mem_array_1_display_clk) begin
-        if (rst) begin
-            mem_array_1_display_data_out <= 0;
-        end else begin
-            if (!mem_array_1_calc_we) begin : mem_array1_display_read
-                mem_array_1_display_data_out <= mem_array_1[mem_array_1_display_addr];
+            WAIT_CALCULATION: begin
+                if (next_buffer_ready | calc_done) begin
+                    state <= WAIT_DISPLAY;
+                end
             end
-        end
-    end
 
-    logic
-        mem_array_2_rst,
-        mem_array_2_calc_clk,
-        mem_array_2_calc_we,
-        mem_array_2_calc_addr,
-        mem_array_2_calc_data_in,
-        mem_array_2_calc_data_out,
-        mem_array_2_display_clk,
-        mem_array_2_display_addr,
-        mem_array_2_display_data_out;
-    //BUFFER 2
-    logic mem_array_2[WIDTH + HEIGHT -1 : 0];
+            WAIT_DISPLAY: begin
+                if (display_buf_change_ack) begin
+                    current_display_buffer <= !current_display_buffer;
+                    next_buffer_ready <= 0;
+                    if (!next_buffer_ready) begin
+                        state <= WAIT_CALCULATION;
+                    end
+                end else begin
+                    if (calc_done) begin
+                        next_buffer_ready <= 1; 
+                    end
+                end
 
-    always_ff @(posedge mem_array_2_calc_clk) begin
-        if (rst) begin
-            mem_array_2_calc_data_out <= 0;
-        end else begin
-            if (!mem_array_2_calc_we) begin : mem_array2_calc_read
-                mem_array_2_calc_data_out <= mem_array_2[mem_array_2_calc_addr];
-            end else begin : mem_array2_calc_write
-                mem_array_2[mem_array_2_calc_addr] <= mem_array_2_calc_data_in;
+
+
             end
-        end
 
+        endcase
     end
 
-    always_ff @(posedge mem_array_2_display_clk) begin
-        if (rst) begin
-            mem_array_2_display_data_out <= 0;
-        end else begin
-            if (!mem_array_2_calc_we) begin : mem_array2_display_read
-                mem_array_2_display_data_out <= mem_array_2[mem_array_2_display_addr];
+
+
+    always_comb begin : buffer_mux_comb
+
+        buf1_calc_we           = '0;
+        buf1_calc_addr         = '0;
+        buf1_calc_data_in      = '0;
+        buf1_display_addr      = '0;
+
+        buf2_calc_we           = '0;
+        buf2_calc_addr         = '0;
+        buf2_calc_data_in      = '0;
+        buf2_display_addr      = '0;
+
+        calc_dat_out           = '0;
+        display_out_cell_state = '0;
+
+        valid                  = 0;
+
+        unique case (state) inside
+            INIT: begin
+                buf1_calc_we      = '0;
+                buf1_calc_addr    = '0;
+                buf1_calc_data_in = '0;
+                buf1_display_addr = '0;
+
+                buf2_calc_we      = '0;
+                buf2_calc_addr    = '0;
+                buf2_calc_data_in = '0;
+                buf2_display_addr = '0;
+
+                valid             = 0;
             end
-        end
+
+            WAIT_CALCULATION, WAIT_DISPLAY: begin
+                if (current_display_buffer == 1) begin  //! writes to buf1, reads from buf2
+                    buf1_calc_we           = calc_we;
+                    buf1_calc_addr         = calc_cell_addr;
+                    buf1_calc_data_in      = calc_dat_in;
+
+                    buf2_calc_we           = 1'b0;
+                    buf2_calc_addr         = calc_cell_addr;
+                    calc_dat_out           = buf2_calc_data_out;
+
+                    buf2_display_addr      = display_out_cell_addr;
+                    display_out_cell_state = buf2_display_data_out;
+
+                end else begin  //! reads from buf1, writes to buf2
+                    buf1_calc_we           = 1'b0;
+                    buf1_calc_addr         = calc_cell_addr;
+                    calc_dat_out           = buf1_calc_data_out;
+
+                    buf2_calc_we           = calc_we;
+                    buf2_calc_addr         = calc_cell_addr;
+                    buf2_calc_data_in      = calc_dat_in;
+
+                    buf1_display_addr      = display_out_cell_addr;
+                    display_out_cell_state = buf1_display_data_out;
+                end
+            end
+
+
+        endcase
     end
 
+
+
+
+
+    state_bram #(
+        .WIDTH (WIDTH),
+        .HEIGHT(HEIGHT)
+    ) buffer_1 (
+        .rst             (rst),
+        .calc_clk        (calc_clk),
+        .display_clk     (display_clk),
+        .calc_we         (buf1_calc_we),
+        .calc_addr       (buf1_calc_addr),
+        .calc_data_in    (buf1_calc_data_in),
+        .calc_data_out   (buf1_calc_data_out),
+        .display_addr    (buf1_display_addr),
+        .display_data_out(buf1_display_data_out)
+    );
+
+
+
+    state_bram #(
+        .WIDTH (WIDTH),
+        .HEIGHT(HEIGHT)
+    ) buffer_2 (
+        .rst             (rst),
+        .calc_clk        (calc_clk),
+        .display_clk     (display_clk),
+        .calc_we         (buf2_calc_we),
+        .calc_addr       (buf2_calc_addr),
+        .calc_data_in    (buf2_calc_data_in),
+        .calc_data_out   (buf2_calc_data_out),
+        .display_addr    (buf2_display_addr),
+        .display_data_out(buf2_display_data_out)
+    );
 
 endmodule

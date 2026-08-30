@@ -12,7 +12,7 @@ module life #(
 
 
     output state_bram_re,
-    output cell_address_class#()::cell_address state_bram_cell_addr, //! EVIL EVIL EVIL EVIL EVIL
+    output cell_address_class#(WIDTH, HEIGHT)::cell_address state_bram_cell_addr, //! EVIL EVIL EVIL EVIL EVIL
     input logic state_bram_cell_data_in,
 
     output logic state_bram_cell_data_out,
@@ -45,7 +45,7 @@ module life #(
     logic [3:0] neighbor_read_count;  // 8 neighbors , 1 self:
     logic [7:0] cur_cell_neighbors;
     logic cur_cell_state;
-    cell_address_class #()::cell_address cur_cell_addr;
+    cell_address_class #(WIDTH, HEIGHT)::cell_address cur_cell_addr;
 
     logic prev_neighbor_avail;
     logic [4:0] prev_neighbors;
@@ -57,7 +57,7 @@ module life #(
 
 
     //! WTF LOL OMEGALUL
-    cell_address_class #()::cell_address
+    cell_address_class #(WIDTH, HEIGHT)::cell_address
         neighbor0_addr,
         neighbor1_addr,
         neighbor2_addr,
