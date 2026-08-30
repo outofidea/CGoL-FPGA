@@ -11,9 +11,9 @@ module life #(
     input logic rst,
 
 
-    output state_bram_re,
-    output cell_address_class#()::cell_address state_bram_cell_addr, //! EVIL EVIL EVIL EVIL EVIL
-    input logic state_bram_cell_data_in,
+    output              state_bram_re,
+    output cell_address state_bram_cell_addr,
+    input  logic        state_bram_cell_data_in,
 
     output logic state_bram_cell_data_out,
     input  logic state_bram_cell_data_valid,
@@ -45,7 +45,7 @@ module life #(
     logic [3:0] neighbor_read_count;  // 8 neighbors , 1 self:
     logic [7:0] cur_cell_neighbors;
     logic cur_cell_state;
-    cell_address_class #()::cell_address cur_cell_addr;
+    cell_address cur_cell_addr;
 
     logic prev_neighbor_avail;
     logic [4:0] prev_neighbors;
@@ -57,7 +57,7 @@ module life #(
 
 
     //! WTF LOL OMEGALUL
-    cell_address_class #()::cell_address
+    cell_address
         neighbor0_addr,
         neighbor1_addr,
         neighbor2_addr,
@@ -108,7 +108,7 @@ module life #(
         };
 
 
-    always_ff @(posedge clk) begin : life_state_logic
+    always_ff @(posedge clk) begin : life_state_advance_logic
         if (rst) begin
             life_state <= IDLE;
         end else begin
@@ -119,7 +119,7 @@ module life #(
 
 
 
-    always_comb begin : life_logic_comb
+    always_comb begin : life_logic_comb //? might separate bram addressing logic and state jump logic later
         state_bram_cell_addr = '0;
         life_state_next      = life_state;
 
@@ -132,11 +132,18 @@ module life #(
             NEIGH: begin  //! hardcoded combinatorial hell coming
 
                 if (prev_neighbor_avail) begin
+                    if (corners[2] == 1) begin //! neighbor info and in edges / corners, should be in the 2 horizontal edges only
+
+
+
+                    end
+
+                    
+
 
                 end else begin
 
-                    if (corners[2] == 1) begin
-
+                    if (corners[2] == 1) begin //! if in corner without prev neighbors (only on the 2 vertical screen edges)
                         unique case (corners[1:0])
                             2'b00: begin
                                 //only self and neigh[4,6,7]
@@ -162,7 +169,7 @@ module life #(
                                     end
 
                                     4: begin
-
+                                        life_state_next = CALC;
                                     end
                                 endcase
 
@@ -193,10 +200,8 @@ module life #(
                                         state_bram_cell_addr = neighbor6_addr;
                                     end
                                     4: begin
-
+                                        life_state_next = CALC;
                                     end
-
-
 
                                 endcase
                             end
@@ -225,7 +230,7 @@ module life #(
                                         state_bram_cell_addr = neighbor4_addr;
                                     end
                                     4: begin
-
+                                        life_state_next = CALC;
                                     end
 
                                 endcase
@@ -257,33 +262,32 @@ module life #(
                                     end
 
                                     4: begin
-
+                                        life_state_next = CALC;
                                     end
 
                                 endcase
                             end
-
-                        endcase
-                    end else begin
-                        // not in any edges / corners so we just need neigh[2,4,7]
-                        unique case (neighbor_read_count)
-                            0: begin
-
-                            end
-
-                            1: begin
-
-                            end
-
-                            2: begin
-
-                            end
-
-                            3: begin
-
-                            end
                         endcase
 
+                    end else begin //! no prev neighbor info without edges / corners, should be impossible ?
+                        // unique case (neighbor_read_count)
+                        //     0: begin
+
+                        //     end
+
+                        //     1: begin
+
+                        //     end
+
+                        //     2: begin
+
+                        //     end
+
+                        //     3: begin
+
+                        //     end
+                        // endcase  
+                        $error("HOW ?");
                     end
 
                 end

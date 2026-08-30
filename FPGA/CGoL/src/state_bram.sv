@@ -1,7 +1,5 @@
 import cell_address_package::*;
 module state_bram #(
-    parameter WIDTH  = 67,
-    parameter HEIGHT = 67
 ) (
     input logic rst,
 
@@ -18,10 +16,6 @@ module state_bram #(
 
 );
 
-
-
-
-    //BUFFER 1 
     logic mem_array[0:16383];  //! taking the whole 16kbit for fun
 
     always_ff @(posedge calc_clk) begin

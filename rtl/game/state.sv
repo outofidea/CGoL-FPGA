@@ -8,20 +8,20 @@ module state #(
     input logic display_clk,
     input logic rst,
 
-    input  cell_address_class#()::cell_address calc_cell_addr,
-    input  logic                               calc_we,
-    input  logic                               calc_done,
-    input  logic                               calc_dat_in,
-    output logic                               calc_dat_out,
-    output logic                               ready,
-    output logic                               valid,
+    input  cell_address calc_cell_addr,
+    input  logic        calc_we,
+    input  logic        calc_done,
+    input  logic        calc_dat_in,
+    output logic        calc_dat_out,
+    output logic        ready,
+    output logic        valid,
 
 
-    input  cell_address_class#()::cell_address display_out_cell_addr,
-    input  logic                               display_buf_change_ack,
-    output logic                               display_buf_change_ready,
-    output logic                               display_out_cell_state,
-    output logic                               display_out_valid
+    input  cell_address display_out_cell_addr,
+    input  logic        display_buf_change_ack,
+    output logic        display_buf_change_ready,
+    output logic        display_out_cell_state,
+    output logic        display_out_valid
 
 );
 
@@ -32,18 +32,18 @@ module state #(
     logic next_buffer_ready;
 
     logic buf1_calc_we;
-    cell_address_class #()::cell_address buf1_calc_addr;
+    cell_address buf1_calc_addr;
     logic buf1_calc_data_in;
     logic buf1_calc_data_out;
-    cell_address_class #()::cell_address buf1_display_addr;
+    cell_address buf1_display_addr;
     logic buf1_display_data_out;
 
 
     logic buf2_calc_we;
-    cell_address_class #()::cell_address buf2_calc_addr;
+    cell_address buf2_calc_addr;
     logic buf2_calc_data_in;
     logic buf2_calc_data_out;
-    cell_address_class #()::cell_address buf2_display_addr;
+    cell_address buf2_display_addr;
     logic buf2_display_data_out;
 
 
@@ -65,6 +65,11 @@ module state #(
 
 
     always_ff @(posedge calc_clk) begin
+
+        if (calc_done) begin
+            next_buffer_ready <= 1;
+        end
+
         unique case (state)
 
             INIT: begin
@@ -72,28 +77,18 @@ module state #(
             end
 
             WAIT_CALCULATION: begin
-                if (next_buffer_ready | calc_done) begin
-                    state <= WAIT_DISPLAY;
+                if (calc_done) begin
+                    state             <= WAIT_DISPLAY;
+                    next_buffer_ready <= 1'b1;
                 end
             end
 
             WAIT_DISPLAY: begin
                 if (display_buf_change_ack) begin
                     current_display_buffer <= !current_display_buffer;
-                    next_buffer_ready <= 0;
-                    if (!next_buffer_ready) begin
-                        state <= WAIT_CALCULATION;
-                    end
-                end else begin
-                    if (calc_done) begin
-                        next_buffer_ready <= 1; 
-                    end
+                    state                  <= WAIT_CALCULATION;
                 end
-
-
-
             end
-
         endcase
     end
 
@@ -166,10 +161,7 @@ module state #(
 
 
 
-    state_bram #(
-        .WIDTH (WIDTH),
-        .HEIGHT(HEIGHT)
-    ) buffer_1 (
+    state_bram #() buffer_1 (
         .rst             (rst),
         .calc_clk        (calc_clk),
         .display_clk     (display_clk),
@@ -183,10 +175,7 @@ module state #(
 
 
 
-    state_bram #(
-        .WIDTH (WIDTH),
-        .HEIGHT(HEIGHT)
-    ) buffer_2 (
+    state_bram #() buffer_2 (
         .rst             (rst),
         .calc_clk        (calc_clk),
         .display_clk     (display_clk),

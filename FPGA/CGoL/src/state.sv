@@ -149,8 +149,6 @@ module state #(
 
 
     state_bram #(
-        .WIDTH (WIDTH),
-        .HEIGHT(HEIGHT)
     ) buffer_1 (
         .rst             (rst),
         .calc_clk        (calc_clk),
@@ -166,8 +164,6 @@ module state #(
 
 
     state_bram #(
-        .WIDTH (WIDTH),
-        .HEIGHT(HEIGHT)
     ) buffer_2 (
         .rst             (rst),
         .calc_clk        (calc_clk),

@@ -1,0 +1,15 @@
+{
+    "$schema": "https://raw.githubusercontent.com/hudson-trading/slang-server/refs/heads/main/clients/vscode/resources/config.schema.json",
+    "index": [
+        {
+            "dirs": [
+                "rtl"
+            ],
+            "excludeDirs": [
+                "FPGA"
+            ]
+        }
+    ],
+    "wcpCommand": "surfer --wcp-initiate {}",
+    "wavesPattern": ""
+}

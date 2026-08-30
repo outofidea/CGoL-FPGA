@@ -1,7 +1,5 @@
 import cell_address_package::*;
 module state_bram #(
-    parameter WIDTH  = 67,
-    parameter HEIGHT = 67
 ) (
     input logic rst,
 
@@ -9,11 +7,11 @@ module state_bram #(
     input logic display_clk,
 
     input  logic                                            calc_we,
-    input  cell_address_class#()::cell_address calc_addr,
+    input  cell_address calc_addr,
     input  logic                                            calc_data_in,
     output logic                                            calc_data_out,
 
-    input  cell_address_class#()::cell_address display_addr,
+    input  cell_address display_addr,
     output logic                                            display_data_out
 
 );
