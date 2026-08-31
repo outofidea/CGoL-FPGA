@@ -1,7 +1,7 @@
 package cell_address_package;
 
-    parameter WIDTH = 128; 
-    parameter HEIGHT = 128;
+    parameter WIDTH = 480; 
+    parameter HEIGHT = 272;
     parameter WIDTH_BITS = $clog2(WIDTH);
     parameter HEIGHT_BITS = $clog2(HEIGHT);
 

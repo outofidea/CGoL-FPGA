@@ -6,9 +6,15 @@
     <Device name="GW2A-18C" pn="GW2A-LV18PG256C8/I7">gw2a18c-011</Device>
     <FileList>
         <File path="src/cell_address_package.sv" type="file.verilog" enable="1"/>
+        <File path="src/debounce.sv" type="file.verilog" enable="1"/>
+        <File path="src/disp_data_package.sv" type="file.verilog" enable="1"/>
+        <File path="src/display.sv" type="file.verilog" enable="1"/>
+        <File path="src/gowin_rpll/gowin_rpll.v" type="file.verilog" enable="1"/>
+        <File path="src/lcd.sv" type="file.verilog" enable="1"/>
         <File path="src/life.sv" type="file.verilog" enable="1"/>
         <File path="src/state.sv" type="file.verilog" enable="1"/>
         <File path="src/state_bram.sv" type="file.verilog" enable="1"/>
+        <File path="src/top.sv" type="file.verilog" enable="1"/>
         <File path="src/CGoL.cst" type="file.cst" enable="1"/>
         <File path="src/CGoL.sdc" type="file.sdc" enable="1"/>
     </FileList>

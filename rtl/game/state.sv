@@ -1,8 +1,8 @@
 // `default_nettype none
 import cell_address_package::*;
 module state #(
-    parameter WIDTH  = 420,
-    parameter HEIGHT = 270
+    parameter WIDTH  = 480,
+    parameter HEIGHT = 272
 ) (
     input logic calc_clk,
     input logic display_clk,
@@ -11,25 +11,30 @@ module state #(
     input  cell_address calc_cell_addr,
     input  logic        calc_we,
     input  logic        calc_done,
+    output logic        calc_done_ack,
     input  logic        calc_dat_in,
     output logic        calc_dat_out,
-    output logic        ready,
-    output logic        valid,
+
+    output logic valid,
 
 
     input  cell_address display_out_cell_addr,
     input  logic        display_buf_change_ack,
     output logic        display_buf_change_ready,
     output logic        display_out_cell_state,
-    output logic        display_out_valid
+    output logic        display_out_valid,
+    input  logic        display_out_cell_addr_valid
 
 );
 
     //? Buffer management follows calculation clock (as its the fastest (should be))
 
-    logic current_display_buffer;
 
-    logic next_buffer_ready;
+
+    logic current_display_buffer;
+    logic display_buffer_display;
+    logic display_buf_change_ack_sync_1;
+    logic display_buf_change_ack_sync_2;
 
     logic buf1_calc_we;
     cell_address buf1_calc_addr;
@@ -46,50 +51,71 @@ module state #(
     cell_address buf2_display_addr;
     logic buf2_display_data_out;
 
-
     typedef enum {
         INIT,
         WAIT_CALCULATION,  //when next buf not ready
         WAIT_DISPLAY  // when at least 1 buffer ready
     } BUFFER_STATE_e;
 
-    BUFFER_STATE_e state, state_next;
-
-    // always_ff @(posedge calc_clk) begin
-    //     if (rst) begin
-    //         state <= INIT;
-    //     end else begin
-    //         state <= state_next;
-    //     end
-    // end
-
+    BUFFER_STATE_e state;
 
     always_ff @(posedge calc_clk) begin
+        if (rst) begin
+            state                         <= INIT;
+            current_display_buffer        <= 1'b0;
+            calc_done_ack                 <= 1'b0;
+            display_buf_change_ready      <= 1'b0;
+            display_buf_change_ack_sync_1 <= 1'b0;
+            display_buf_change_ack_sync_2 <= 1'b0;
+        end else begin
+            display_buf_change_ack_sync_1 <= display_buf_change_ack;
+            display_buf_change_ack_sync_2 <= display_buf_change_ack_sync_1;
+            case (state)
 
-        if (calc_done) begin
-            next_buffer_ready <= 1;
+                INIT: begin
+                    current_display_buffer   <= 1'b0;
+                    calc_done_ack            <= 1'b0;
+                    display_buf_change_ready <= 1'b0;
+                    state                    <= WAIT_CALCULATION;
+                end
+
+                WAIT_CALCULATION: begin
+                    display_buf_change_ready <= 1'b0;
+                    if (calc_done) begin
+                        state         <= WAIT_DISPLAY;
+                        calc_done_ack <= 1'b1;
+                    end
+                end
+
+                WAIT_DISPLAY: begin
+                    display_buf_change_ready <= 1'b1;
+
+                    if (display_buf_change_ack_sync_2) begin
+                        display_buf_change_ready <= 1'b0;
+                        current_display_buffer   <= !current_display_buffer;
+                        state                    <= WAIT_CALCULATION;
+                    end
+
+                    calc_done_ack <= 1'b0;
+                end
+
+                default: begin
+                    state <= INIT;
+                end
+            endcase
         end
+    end
 
-        unique case (state)
-
-            INIT: begin
-                current_display_buffer <= 0;
+    always_ff @(posedge display_clk) begin
+        if (rst) begin
+            display_buffer_display <= 1'b0;
+            display_out_valid      <= 1'b0;
+        end else begin
+            display_out_valid <= display_out_cell_addr_valid;
+            if (display_buf_change_ack) begin
+                display_buffer_display <= !display_buffer_display;
             end
-
-            WAIT_CALCULATION: begin
-                if (calc_done) begin
-                    state             <= WAIT_DISPLAY;
-                    next_buffer_ready <= 1'b1;
-                end
-            end
-
-            WAIT_DISPLAY: begin
-                if (display_buf_change_ack) begin
-                    current_display_buffer <= !current_display_buffer;
-                    state                  <= WAIT_CALCULATION;
-                end
-            end
-        endcase
+        end
     end
 
 
@@ -155,13 +181,27 @@ module state #(
 
 
         endcase
+
+        if (state != INIT) begin
+            if (display_buffer_display == 1'b0) begin
+                buf1_display_addr      = display_out_cell_addr;
+                display_out_cell_state = buf1_display_data_out;
+            end else begin
+                buf2_display_addr      = display_out_cell_addr;
+                display_out_cell_state = buf2_display_data_out;
+            end
+        end
     end
 
 
 
 
 
-    state_bram #() buffer_1 (
+    state_bram #(
+        .WIDTH    (WIDTH),
+        .HEIGHT   (HEIGHT),
+        .INIT_FILE("seed.mem")
+    ) buffer_1 (
         .rst             (rst),
         .calc_clk        (calc_clk),
         .display_clk     (display_clk),
@@ -175,7 +215,10 @@ module state #(
 
 
 
-    state_bram #() buffer_2 (
+    state_bram #(
+        .WIDTH (WIDTH),
+        .HEIGHT(HEIGHT)
+    ) buffer_2 (
         .rst             (rst),
         .calc_clk        (calc_clk),
         .display_clk     (display_clk),
