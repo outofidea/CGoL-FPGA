@@ -1,8 +1,8 @@
 import cell_address_package::*;
 import disp_data_package::*;
-module top (
+module top_sim (
     input logic rst_but_n,
-    input logic ext_27M_osc,
+    input logic disp_clk, calc_clk, pll_lock,
 
     output logic    lcd_vsync,
     output logic    lcd_hsync,
@@ -19,22 +19,12 @@ module top (
     parameter HEIGHT = 272;
 
     //TODO in fpga top lv add PLLs and resets
-    logic pll_lock;
-
-    logic calc_clk, disp_clk;
 
     logic calc_state_we;
     logic calc_state_data_in, calc_state_data_out;
     logic calc_done, calc_done_ack;
 
     logic rst_but_debounce, sys_rst;
-
-    Gowin_rPLL main_pll (
-        .clkout(calc_clk),  //output clkout
-        .lock(pll_lock),  //output lock
-        .clkoutd(disp_clk),  //output clkoutd
-        .clkin(ext_27M_osc)  //input clkin
-    );
 
     debounce #(
         .CLK_FREQ_HZ     (81_000_000),
@@ -90,6 +80,7 @@ module top (
         display_out_cell_state,
         display_out_valid,
         display_addr_valid;
+        
     logic display_frame_end;
 
     display display (

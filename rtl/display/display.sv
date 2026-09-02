@@ -12,16 +12,17 @@ module display #(
     input  logic        disp_cell_state,
     input  logic        disp_cell_state_valid,
 
-    input logic playpause,
-    input logic display_buf_change_ready,
+    input  logic playpause,
+    input  logic screen_ovrd,
+    input  logic display_buf_change_ready,
     output logic display_buf_change_ack,
 
     output disp_dat display_data,
-    output logic lcd_vsync,
-    output logic lcd_hsync,
-    output logic lcd_pixclk,
-    output logic lcd_de,
-    output logic lcd_frame_end
+    output logic    lcd_vsync,
+    output logic    lcd_hsync,
+    output logic    lcd_pixclk,
+    output logic    lcd_de,
+    output logic    lcd_frame_end
 
 
 
@@ -43,15 +44,12 @@ module display #(
     logic ready_sync_1;
     logic ready_sync_2;
 
-    assign disp_cell_addr = '{
-        cell_addr_x: lcd_cur_x,
-        cell_addr_y: lcd_cur_y
-    };
-    
+    assign disp_cell_addr       = '{cell_addr_x: lcd_cur_x, cell_addr_y: lcd_cur_y};
+
     assign disp_cell_addr_valid = lcd_active;
 
     always_comb begin
-        if (disp_cell_state_valid && disp_cell_state) begin
+        if ((disp_cell_state_valid && disp_cell_state) | screen_ovrd) begin
             lcd_r_dat = 5'h1f;
             lcd_g_dat = 6'h3f;
             lcd_b_dat = 5'h1f;
@@ -85,21 +83,21 @@ module display #(
         .G_WIDTH(6),
         .B_WIDTH(5)
     ) lcd (
-        .i_clk     (display_clk),
-        .i_rst     (disp_rst),
-        .i_r       (lcd_r_dat),
-        .i_g       (lcd_g_dat),
-        .i_b       (lcd_b_dat),
-        .lcd_cur_x (lcd_cur_x),
-        .lcd_cur_y (lcd_cur_y),
-        .lcd_active(lcd_active),
-        .lcd_r     (lcd_r),
-        .lcd_g     (lcd_g),
-        .lcd_b     (lcd_b),
-        .lcd_vsync (lcd_vsync),
-        .lcd_hsync (lcd_hsync),
-        .lcd_pixclk(lcd_pixclk),
-        .lcd_de    (lcd_de),
+        .i_clk        (display_clk),
+        .i_rst        (disp_rst),
+        .i_r          (lcd_r_dat),
+        .i_g          (lcd_g_dat),
+        .i_b          (lcd_b_dat),
+        .lcd_cur_x    (lcd_cur_x),
+        .lcd_cur_y    (lcd_cur_y),
+        .lcd_active   (lcd_active),
+        .lcd_r        (lcd_r),
+        .lcd_g        (lcd_g),
+        .lcd_b        (lcd_b),
+        .lcd_vsync    (lcd_vsync),
+        .lcd_hsync    (lcd_hsync),
+        .lcd_pixclk   (lcd_pixclk),
+        .lcd_de       (lcd_de),
         .lcd_frame_end(lcd_frame_end)
     );
 

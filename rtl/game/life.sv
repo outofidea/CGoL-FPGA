@@ -23,39 +23,86 @@ module life #(
 
     typedef enum {
         RESET,
-        NEIGH_ADDR_CALC,
         NEIGH,
         CALC,
         WRITEBACK,
-        WAIT_BUF
+        WAIT_NEW_BUF
     } LIFE_STATES_e;
+    //! yea im too lazy
 
 
     LIFE_STATES_e life_state, life_state_next;
 
-    // Neighbor layout:
-    // [neigh0]   [neigh1]   [neigh2]
-    // [neigh3]   [self  ]   [neigh4]
-    // [neigh5]   [neigh6]   [neigh7]
+    /*
+        [neigh0]   [neigh1]   [neigh2]
+        [neigh3]   [self  ]   [neigh4]
+        [neigh5]   [neigh6]   [neigh7]
 
-    logic [3:0] neighbor_read_count;  // 0-8: index into which neighbor to read
-    logic [8:0] neighbor_states;      // bit 0=neigh0, bit 1=neigh1, ..., bit 7=neigh7, bit 8=self
-    logic [3:0] cur_total_living_neighbors;
+        [prev_x]   [prev_neigh0]   [prev_neigh1]
+        [prev_x]   [prev_neigh2]   [self       ]
+        [prev_x]   [prev_neigh3]   [prev_neigh4]
+    */
 
-    assign cur_total_living_neighbors = neighbor_states[0] + 
-                                        neighbor_states[1] + 
-                                        neighbor_states[2] + 
-                                        neighbor_states[3] + 
-                                        neighbor_states[4] + 
-                                        neighbor_states[5] + 
-                                        neighbor_states[6] + 
-                                        neighbor_states[7];
-
-    logic cur_cell_state;
-    cell_address cur_cell_addr;
+    logic [9:0] cells_read_state;  //? 8 neighbors , 1 self, OneHot
+    logic [7:0] cur_cell_neighbors;
+    logic [4:0] tot_neighbors;
+    // logic cur_cell_state;
+    logic next_cell_state;
+    cell_address cur_cell_addr, next_cell_addr;
 
     logic final_cell;
-    logic new_cell_state;
+
+
+    //! WTF LOL OMEGALUL
+    cell_address
+        neighbor0_addr,
+        neighbor1_addr,
+        neighbor2_addr,
+        neighbor3_addr,
+        neighbor4_addr,
+        neighbor5_addr,
+        neighbor6_addr,
+        neighbor7_addr;
+
+    assign neighbor0_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x - 1,
+            cell_addr_y: cur_cell_addr.cell_addr_y - 1
+        };
+
+    assign neighbor1_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x,
+            cell_addr_y: cur_cell_addr.cell_addr_y - 1
+        };
+
+    assign neighbor2_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x + 1,
+            cell_addr_y: cur_cell_addr.cell_addr_y - 1
+        };
+
+    assign neighbor3_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x - 1,
+            cell_addr_y: cur_cell_addr.cell_addr_y
+        };
+
+    assign neighbor4_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x + 1,
+            cell_addr_y: cur_cell_addr.cell_addr_y
+        };
+
+    assign neighbor5_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x - 1,
+            cell_addr_y: cur_cell_addr.cell_addr_y + 1
+        };
+
+    assign neighbor6_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x,
+            cell_addr_y: cur_cell_addr.cell_addr_y + 1
+        };
+
+    assign neighbor7_addr = '{
+            cell_addr_x: cur_cell_addr.cell_addr_x + 1,
+            cell_addr_y: cur_cell_addr.cell_addr_y + 1
+        };
 
 
     always_ff @(posedge clk) begin : life_state_advance_logic
@@ -66,55 +113,35 @@ module life #(
         end
     end
 
-    // Compute one neighbor address based on neighbor_read_count
-    // Indices 0-7: the 8 neighbors
-    // Index 8: the cell itself
-    cell_address computed_addr;
-
-    always_comb begin : compute_neighbor_addr
-        case (neighbor_read_count[3:0])
-            4'd0: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x - 1, cell_addr_y: cur_cell_addr.cell_addr_y - 1};
-            4'd1: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x,     cell_addr_y: cur_cell_addr.cell_addr_y - 1};
-            4'd2: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x + 1, cell_addr_y: cur_cell_addr.cell_addr_y - 1};
-            4'd3: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x - 1, cell_addr_y: cur_cell_addr.cell_addr_y};
-            4'd4: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x + 1, cell_addr_y: cur_cell_addr.cell_addr_y};
-            4'd5: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x - 1, cell_addr_y: cur_cell_addr.cell_addr_y + 1};
-            4'd6: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x,     cell_addr_y: cur_cell_addr.cell_addr_y + 1};
-            4'd7: computed_addr = '{cell_addr_x: cur_cell_addr.cell_addr_x + 1, cell_addr_y: cur_cell_addr.cell_addr_y + 1};
-            4'd8: computed_addr = cur_cell_addr;  // The cell itself
-            default: computed_addr = '0;
-        endcase
-    end
-
-
-    always_comb begin : life_logic_comb
+    always_comb begin : life_logic_comb //? might separate bram addressing logic and state jump logic later
         state_bram_cell_addr     = '0;
-        state_bram_cell_data_out = 0;
         state_bram_we            = 0;
+        state_bram_cell_data_out = 0;
         life_state_next          = life_state;
+        next_cell_addr           = 0;
         calc_done                = 0;
-        
         unique case (life_state)
 
             RESET: begin
-                life_state_next = NEIGH_ADDR_CALC;
+                life_state_next = NEIGH;
             end
 
-            NEIGH_ADDR_CALC: begin
-                // Issue one neighbor address per cycle
-                state_bram_cell_addr = computed_addr;
-                
-                // After issuing address 8 (the cell itself), move to NEIGH to collect data
-                if (neighbor_read_count == 4'd8) begin
-                    life_state_next = NEIGH;
-                end
-            end
-
-            NEIGH: begin
-                // Collect neighbor data. After collecting all 9 states (0-8), move to CALC
-                if (neighbor_read_count == 4'd0) begin
-                    life_state_next = CALC;
-                end
+            NEIGH: begin  //needs to get neighbors and self
+                unique case (1'b1)  //! shenanigans 
+                    //? reads neighbors first, self later
+                    cells_read_state[0]: state_bram_cell_addr = neighbor0_addr;
+                    cells_read_state[1]: state_bram_cell_addr = neighbor1_addr;
+                    cells_read_state[2]: state_bram_cell_addr = neighbor2_addr;
+                    cells_read_state[3]: state_bram_cell_addr = neighbor3_addr;
+                    cells_read_state[4]: state_bram_cell_addr = neighbor4_addr;
+                    cells_read_state[5]: state_bram_cell_addr = neighbor5_addr;
+                    cells_read_state[6]: state_bram_cell_addr = neighbor6_addr;
+                    cells_read_state[7]: state_bram_cell_addr = neighbor7_addr;
+                    cells_read_state[8]: begin
+                        state_bram_cell_addr = cur_cell_addr;
+                        life_state_next      = CALC;
+                    end
+                endcase
             end
 
             CALC: begin
@@ -123,232 +150,130 @@ module life #(
 
             WRITEBACK: begin
                 state_bram_we            = 1;
-                state_bram_cell_data_out = new_cell_state;
-                state_bram_cell_addr     = cur_cell_addr;
+                state_bram_cell_data_out = next_cell_state;
                 if (final_cell) begin
-                    life_state_next = WAIT_BUF;
+
                 end else begin
-                    life_state_next = NEIGH_ADDR_CALC;
+                    life_state_next = NEIGH;
                 end
             end
 
-            WAIT_BUF: begin
+            WAIT_NEW_BUF: begin
                 calc_done = 1;
                 if (calc_done_ack) begin
                     life_state_next = RESET;
                 end
             end
-
         endcase
     end
 
     always_ff @(posedge clk) begin : life_logic_ff
 
-        if (rst) begin
-            neighbor_read_count      <= '0;
-            cur_cell_neighbors_state <= '0;
-            cur_cell_addr            <= '{default: 0};
-            new_cell_state           <= 0;
-            final_cell               <= 0;
-            prev_neighbor_avail      <= 0;
-            prev_neighbors           <= '0;
-            corners                  <= '0;
-        end else begin
+        unique case (life_state)
+            RESET: begin
+                cells_read_state   <= '0;
+                cur_cell_neighbors <= '0;
+                cur_cell_addr      <= '{default: 0};
+                cells_read_state   <= 10'b0000000001;
+            end  //end state IDLE
 
-            unique case (life_state)
-                RESET: begin
-                    neighbor_read_count      <= '0;
-                    cur_cell_neighbors_state <= '0;
-                    cur_cell_addr            <= '{default: 0};
-                    new_cell_state           <= 0;
-                    final_cell               <= 0;
-                    prev_neighbor_avail      <= 0;
-                    prev_neighbors           <= '0;
-                    corners                  <= '0;
-                end  //end state IDLE
+            //! get neighbors first then correct corners later, as simple as possible
+            NEIGH: begin
+                unique case (1'b1)  //! more shenanigans
+                    cells_read_state[0]: cells_read_state <= 10'b0000000010;  //? skip 
 
-                CORNERS_CHECK: begin
-                    if (cur_cell_addr.cell_addr_x == 0) begin  // left side
-                        {cur_cell_neighbors_state[0], cur_cell_neighbors_state[3], cur_cell_neighbors_state[5]} <= '0;
-                        corners[2] <= 1;
-                    end
-                    if (cur_cell_addr.cell_addr_x == WIDTH - 1) begin //? Will shit itself if over/underflows
-                        {cur_cell_neighbors_state[2], cur_cell_neighbors_state[4], cur_cell_neighbors_state[7]} <= '0;
-                        corners[2] <= 1;
-                        corners[0] <= 1;
+                    cells_read_state[1]: begin
+                        cur_cell_neighbors[0] <= state_bram_cell_data_out;
+                        tot_neighbors[0]      <= state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0000000100;
                     end
 
-                    if (cur_cell_addr.cell_addr_y == 0) begin
-                        cur_cell_neighbors_state[2:0] <= '0;
-                        prev_neighbors[1:0]           <= '0;
-                        corners[2]                    <= 1;
-
-                    end
-                    if (cur_cell_addr.cell_addr_y == HEIGHT - 1) begin //? Will shit itself if over/underflows
-                        cur_cell_neighbors_state[7:5] <= '0;
-                        prev_neighbors[4:3]           <= '0;
-                        corners[2]                    <= 1;
-                        corners[1]                    <= 1;
+                    cells_read_state[2]: begin
+                        cur_cell_neighbors[1] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0000001000;
                     end
 
+                    cells_read_state[3]: begin
+                        cur_cell_neighbors[2] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0000010000;
+                    end
 
-                end  //end state CORNERS_CHECK
+                    cells_read_state[4]: begin
+                        cur_cell_neighbors[3] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0000100000;
+                    end
 
-                NEIGH_ADDR_CALC: begin
-                    // Compute one address per cycle and issue it
-                    // Increment counter for next iteration
-                    neighbor_read_count <= neighbor_read_count + 1;
+                    cells_read_state[5]: begin
+                        cur_cell_neighbors[4] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0001000000;
+                    end
+
+                    cells_read_state[6]: begin
+                        cur_cell_neighbors[5] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0010000000;
+                    end
+
+                    cells_read_state[7]: begin
+                        cur_cell_neighbors[6] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0100000000;
+                    end
+
+                    cells_read_state[8]: begin
+                        cur_cell_neighbors[7] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b1000000000;
+                    end
+
+                    cells_read_state[9]: begin
+                        cur_cell_neighbors[7] <= state_bram_cell_data_out;
+                        tot_neighbors         <= tot_neighbors + state_bram_cell_data_in;
+                        cells_read_state      <= 10'b0000000001;
+                    end
+                endcase
+
+
+
+            end  // end state NEIGH
+
+            CALC: begin
+                if (state_bram_cell_data_out) begin
+                    unique if (tot_neighbors < 2 | tot_neighbors > 3) begin
+                        next_cell_state = 0;
+                    end else if (tot_neighbors == 2 | tot_neighbors == 3) begin
+                        next_cell_state = 1;
+                    end
+                end else begin
+                    if (tot_neighbors == 3) begin
+                        next_cell_state = 1;
+                    end
                 end
+            end
 
-                NEIGH: begin
-                    // Collect data that was prefetched in NEIGH_ADDR_CALC
-                    // Data arrives one cycle after address was issued
-                    // Decrement counter back to track which data slot we're filling
-                    neighbor_read_count <= neighbor_read_count - 1;
-
-                    // Route incoming data to appropriate neighbor position based on read count
-                    if (prev_neighbor_avail) begin
-
-                        if (corners[2] == 1) begin  // In corner/edge
-                            unique case (corners[1:0])
-                                2'b00: begin  // Top-left: needs data for indices 4, 7
-                                    case (neighbor_read_count)
-                                        4'd4:
-                                        cur_cell_neighbors_state[4] <= state_bram_cell_data_in;
-                                        4'd7:
-                                        cur_cell_neighbors_state[7] <= state_bram_cell_data_in;
-                                        default: ;
-                                    endcase
-                                end
-                                2'b01: begin  // Bottom-left: no extra data
-                                end
-                                2'b10: begin  // Top-right: needs data for indices 2, 4
-                                    case (neighbor_read_count)
-                                        4'd2:
-                                        cur_cell_neighbors_state[2] <= state_bram_cell_data_in;
-                                        4'd4:
-                                        cur_cell_neighbors_state[4] <= state_bram_cell_data_in;
-                                        default: ;
-                                    endcase
-                                end
-                                2'b11: begin  // Bottom-right: no extra data
-                                end
-                            endcase
-
-                        end else begin  // Not in corner: needs data for indices 0-7
-                            cur_cell_neighbors_state[neighbor_read_count[2:0]] <= state_bram_cell_data_in;
-                        end
-                    
-                    end else begin  // ? prev_neighbor NOT avail
-                        if (corners[2] == 1) begin
-                            unique case (corners[1:0])
-                                2'b00: begin  // Top-left: needs self, 4, 6, 7
-                                    case (neighbor_read_count)
-                                        4'd0: cur_cell_state <= state_bram_cell_data_in;
-                                        4'd4:
-                                        cur_cell_neighbors_state[4] <= state_bram_cell_data_in;
-                                        4'd6:
-                                        cur_cell_neighbors_state[6] <= state_bram_cell_data_in;
-                                        4'd7:
-                                        cur_cell_neighbors_state[7] <= state_bram_cell_data_in;
-                                        default: ;
-                                    endcase
-                                end
-                                2'b01: begin  // Bottom-left: needs self, 3, 5, 6
-                                    case (neighbor_read_count)
-                                        4'd0: cur_cell_state <= state_bram_cell_data_in;
-                                        4'd3:
-                                        cur_cell_neighbors_state[3] <= state_bram_cell_data_in;
-                                        4'd5:
-                                        cur_cell_neighbors_state[5] <= state_bram_cell_data_in;
-                                        4'd6:
-                                        cur_cell_neighbors_state[6] <= state_bram_cell_data_in;
-                                        default: ;
-                                    endcase
-                                end
-                                2'b10: begin  // Top-right: needs self, 1, 2, 4
-                                    case (neighbor_read_count)
-                                        4'd0: cur_cell_state <= state_bram_cell_data_in;
-                                        4'd1:
-                                        cur_cell_neighbors_state[1] <= state_bram_cell_data_in;
-                                        4'd2:
-                                        cur_cell_neighbors_state[2] <= state_bram_cell_data_in;
-                                        4'd4:
-                                        cur_cell_neighbors_state[4] <= state_bram_cell_data_in;
-                                        default: ;
-                                    endcase
-                                end
-                                2'b11: begin  // Bottom-right: needs self, 0, 1, 3
-                                    case (neighbor_read_count)
-                                        4'd0: cur_cell_state <= state_bram_cell_data_in;
-                                        4'd1:
-                                        cur_cell_neighbors_state[1] <= state_bram_cell_data_in;
-                                        4'd2:
-                                        cur_cell_neighbors_state[0] <= state_bram_cell_data_in;
-                                        4'd3:
-                                        cur_cell_neighbors_state[3] <= state_bram_cell_data_in;
-                                        default: ;
-                                    endcase
-                                end
-                            endcase
-                        end
-                    end
-                end  // end state NEIGH
-
-                CALC: begin
-                    if (cur_cell_state) begin
-                        if (cur_total_living_neighbors < 2) begin  //? dies of underpopulation
-                            new_cell_state <= 0;
-                        end
-
-                        if (cur_total_living_neighbors == 2 | cur_total_living_neighbors == 3) begin //? lives
-                            new_cell_state <= 1;
-                        end
-
-                        if (cur_total_living_neighbors > 3) begin  //? dies of overpopulation
-                            new_cell_state <= 0;
-                        end
+            WRITEBACK: begin
+                if (cur_cell_addr.cell_addr_x == WIDTH - 1) begin
+                    if (cur_cell_addr.cell_addr_y == HEIGHT - 1) begin
+                        final_cell    <= 1;
+                        cur_cell_addr <= '0;
                     end else begin
-                        if (cur_total_living_neighbors == 3) begin  //? birth
-                            new_cell_state <= 1;
-                        end
+                        cur_cell_addr.cell_addr_x <= '0;
+                        cur_cell_addr.cell_addr_y <= cur_cell_addr.cell_addr_y + 1;
                     end
-
-                    if (cur_cell_addr.cell_addr_x == WIDTH - 1) begin
-                        if (cur_cell_addr.cell_addr_y == HEIGHT - 1) begin
-                            final_cell <= 1;
-                        end else begin
-                            cur_cell_addr <= '{
-                                cell_addr_x: '0,
-                                cell_addr_y: cur_cell_addr.cell_addr_y + 1
-                            };
-                            prev_neighbor_avail <= 0;
-                        end
-
-                    end else begin
-                        cur_cell_addr <= '{
-                            cell_addr_x: cur_cell_addr.cell_addr_x + 1,
-                            cell_addr_y: cur_cell_addr.cell_addr_y
-                        };
-                        prev_neighbor_avail <= 1;
-
-                        prev_neighbors[1:0] <= cur_cell_neighbors_state[2:1];
-                        prev_neighbors[3] <= cur_cell_neighbors_state[4];
-                        prev_neighbors[2] <= cur_cell_state;
-                        prev_neighbors[5:4] <= cur_cell_neighbors_state[7:6];
-                    end
+                end else begin
+                    cur_cell_addr.cell_addr_x <= cur_cell_addr.cell_addr_x + 1;
                 end
+            end
 
-                WRITEBACK: begin
+            WAIT_NEW_BUF: begin
 
-                end
+            end
 
-                WAIT_BUF: begin
-
-                end
-
-            endcase  // end state logic
-        end
+        endcase  // end state logic
     end
 
 

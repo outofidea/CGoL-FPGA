@@ -200,7 +200,7 @@ module state #(
     state_bram #(
         .WIDTH    (WIDTH),
         .HEIGHT   (HEIGHT),
-        .INIT_FILE("seed.mem")
+        .INIT_FILL(1)
     ) buffer_1 (
         .rst             (rst),
         .calc_clk        (calc_clk),

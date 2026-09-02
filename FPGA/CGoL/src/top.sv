@@ -8,7 +8,11 @@ module top (
     output logic    lcd_hsync,
     output logic    lcd_clk,
     output logic    lcd_de,
-    output disp_dat lcd_dat
+    output disp_dat lcd_dat,
+
+    output led2,
+    led3,
+    input sw_5
 
 );
     parameter WIDTH = 480;
@@ -33,16 +37,18 @@ module top (
     );
 
     debounce #(
-        .CLK_FREQ_HZ     (100_000_000),
+        .CLK_FREQ_HZ     (81_000_000),
         .DEBOUNCE_TIME_MS(  /* default 20 */)
     ) fpga_reset_debounce (
         .rst       (!pll_lock),
-        .clk       (disp_clk),
+        .clk       (calc_clk),
         .button_in (!rst_but_n),
         .button_out(rst_but_debounce)
     );
 
-    assign sys_rst = !pll_lock & rst_but_debounce;
+    assign sys_rst = !pll_lock | rst_but_debounce;
+
+    assign led2    = !sys_rst;
 
     logic [3:0] disp_rst_sync;
     logic disp_rst;
@@ -57,6 +63,7 @@ module top (
         end
     end
 
+    assign led3 = disp_rst;
 
     //! CALC
     cell_address calc_state_cell_addr;
@@ -78,7 +85,10 @@ module top (
     //! DISP
     cell_address display_out_cell_addr;
     logic
-        display_buf_change_ready, display_buf_change_ack, display_out_cell_state, display_out_valid,
+        display_buf_change_ready,
+        display_buf_change_ack,
+        display_out_cell_state,
+        display_out_valid,
         display_addr_valid;
     logic display_frame_end;
 
@@ -92,6 +102,7 @@ module top (
         .playpause               (1'b0),
         .display_buf_change_ready(display_buf_change_ready),
         .display_buf_change_ack  (display_buf_change_ack),
+        .screen_ovrd             (sw_5),
         .display_data            (lcd_dat),
         .lcd_vsync               (lcd_vsync),
         .lcd_hsync               (lcd_hsync),
@@ -106,21 +117,21 @@ module top (
         .WIDTH (WIDTH),
         .HEIGHT(HEIGHT)
     ) state (
-        .calc_clk                (calc_clk),
-        .display_clk             (disp_clk),
-        .rst                     (sys_rst),
-        .calc_cell_addr          (calc_state_cell_addr),
-        .calc_we                 (calc_state_we),
-        .calc_done               (calc_done),
-        .calc_done_ack           (calc_done_ack),
-        .calc_dat_in             (calc_state_data_out),
-        .calc_dat_out            (calc_state_data_in),
-        .valid                   (),
-        .display_out_cell_addr   (display_out_cell_addr),
-        .display_buf_change_ack  (display_buf_change_ack),
-        .display_buf_change_ready(display_buf_change_ready),
-        .display_out_cell_state  (display_out_cell_state),
-        .display_out_valid       (display_out_valid),
+        .calc_clk                   (calc_clk),
+        .display_clk                (disp_clk),
+        .rst                        (sys_rst),
+        .calc_cell_addr             (calc_state_cell_addr),
+        .calc_we                    (calc_state_we),
+        .calc_done                  (calc_done),
+        .calc_done_ack              (calc_done_ack),
+        .calc_dat_in                (calc_state_data_out),
+        .calc_dat_out               (calc_state_data_in),
+        .valid                      (),
+        .display_out_cell_addr      (display_out_cell_addr),
+        .display_buf_change_ack     (display_buf_change_ack),
+        .display_buf_change_ready   (display_buf_change_ready),
+        .display_out_cell_state     (display_out_cell_state),
+        .display_out_valid          (display_out_valid),
         .display_out_cell_addr_valid(display_addr_valid)
     );
 endmodule
