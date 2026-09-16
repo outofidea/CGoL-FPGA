@@ -2,3 +2,6 @@ FPGA/CGoL/impl/
 EN/
 .cache/
 build
+.slang/
+.vscode/
+cgol_tools/

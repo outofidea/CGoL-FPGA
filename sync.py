@@ -1,3 +1,5 @@
+#! /home/lam/.venv/bin/python
+#? she she on my bang so hard i interpreted it with python
 import shutil
 
 with open("sources.list") as sources:

@@ -1,3 +1,6 @@
+
+./rtl/gowin_rpll/gowin_rpll.v
+
 ./rtl/display/display.sv
 ./rtl/display/lcd.sv
 ./rtl/display/disp_data_package.sv
@@ -6,7 +9,7 @@
 ./rtl/game/life.sv
 ./rtl/game/state_bram.sv
 ./rtl/game/state.sv
-./rtl/game/seed.mem
+./rtl/game/seed.hex
 
 
 ./rtl/misc/debounce.sv
