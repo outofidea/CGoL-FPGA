@@ -1,2 +1,4 @@
 FPGA/CGoL/impl/
 EN/
+.cache/
+build

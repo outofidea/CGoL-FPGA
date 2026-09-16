@@ -1,0 +1,13 @@
+{
+    "cmake.configureSettings": {
+        "CMAKE_PREFIX_PATH": "/usr/local/share/verilator/"
+    },
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.codeAnalysis.clangTidy.checks.enabled": [
+        "bugprone-*",
+        "modernize-*",
+        "performance-*",
+        "readability-*"
+    ],
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+}

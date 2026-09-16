@@ -1,0 +1,12 @@
+../rtl/display/display.sv
+../rtl/display/lcd.sv
+../rtl/display/disp_data_package.sv
+
+../rtl/game/cell_address_package.sv
+../rtl/game/life.sv
+../rtl/game/state_bram.sv
+../rtl/game/state.sv
+
+../rtl/misc/debounce.sv
+
+../rtl/top_yosys.sv
