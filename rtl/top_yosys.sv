@@ -1,38 +1,58 @@
 import cell_address_package::*;
 import disp_data_package::*;
-module top_sim (
+module top (
     input logic rst_but_n,
-    input logic disp_clk,
-    calc_clk,
-    pll_lock,
+    input logic ext_27M_osc,
 
-    output logic    lcd_vsync,
-    output logic    lcd_hsync,
-    output logic    lcd_clk,
-    output logic    lcd_de,
-    output disp_dat lcd_dat,
+    output logic       lcd_vsync,
+    output logic       lcd_hsync,
+    output logic       lcd_clk,
+    output logic       lcd_de,
+    output logic [4:0] lcd_r_dat,
+    output logic [5:0] lcd_g_dat,
+    output logic [4:0] lcd_b_dat,
 
     output led2,
     led3,
-    input  sw_5, sw_4
+    input  sw_5,
+    sw_4
 
 );
 
-    initial begin
-        $dumpfile("top.fst");
-        $dumpvars();
-    end
 
-    parameter WIDTH = 16;
-    parameter HEIGHT = 16;
+    parameter WIDTH = 480;
+    parameter HEIGHT = 272;
 
     //TODO in fpga top lv add PLLs and resets
+    logic pll_lock;
+
+    logic calc_clk, disp_clk;
 
     logic calc_state_we;
     logic calc_state_data_in, calc_state_data_out;
     logic calc_done, calc_done_ack;
 
     logic rst_but_debounce, sys_rst;
+
+
+    rPLL #() pll (
+        .CLKOUTP(),
+        .CLKOUTD3(),
+        .RESET(1'b0),
+        .RESET_P(1'b0),
+        .CLKFB(1'b0),
+        .FBDSEL(6'b0),
+        .IDSEL(6'b0),
+        .ODSEL(6'b0),
+        .PSDA(4'b0),
+        .DUTYDA(4'b0),
+        .FDLY(4'b0),
+        .CLKIN(ext_27M_osc),  // 27 MHz
+        .CLKOUT(disp_clk),  // 81 MHz
+        .CLKOUTD(calc_clk),  // 10.125 MHz
+        .LOCK(pll_lock)
+    );
+
 
     debounce #(
         .CLK_FREQ_HZ     (81_000_000),
@@ -43,6 +63,7 @@ module top_sim (
         .button_in (!rst_but_n),
         .button_out(rst_but_debounce)
     );
+
 
     assign sys_rst = !pll_lock | rst_but_debounce;
 
@@ -79,19 +100,6 @@ module top_sim (
         .calc_done_ack           (calc_done_ack)
     );
 
-    logic playpause;
-    
-    //     debounce #(
-    //     .CLK_FREQ_HZ     (10_000_000),
-    //     .DEBOUNCE_TIME_MS(  /* default 20 */)
-    //     ) play_pause_debounce (
-    //     .rst       (!pll_lock),
-    //     .clk       (disp_clk),
-    //     .button_in (sw_4),
-    //     .button_out(playpause)
-    // );   
-
-    assign playpause = sw_4;
 
     //! DISP
     cell_address display_out_cell_addr;
@@ -102,21 +110,48 @@ module top_sim (
         display_out_valid,
         display_addr_valid;
 
-    display #(
-        .WIDTH (WIDTH),
-        .HEIGHT(HEIGHT)
-    ) display (
+    logic disp_ovrd, play_pause;
+
+    debounce #(
+        .CLK_FREQ_HZ     (10_125_000),
+        .DEBOUNCE_TIME_MS(  /* default 20 */)
+    ) disp_override_debounce (
+        .rst       (!pll_lock),
+        .clk       (disp_clk),
+        .button_in (sw_5),
+        .button_out(disp_ovrd)
+    );
+
+    debounce #(
+        .CLK_FREQ_HZ     (10_125_000),
+        .DEBOUNCE_TIME_MS(  /* default 20 */)
+    ) play_pause_debounce (
+        .rst       (!pll_lock),
+        .clk       (disp_clk),
+        .button_in (sw_4),
+        .button_out(play_pause)
+    );
+
+
+    disp_dat lcd_data_bundle;
+
+    assign lcd_r_dat = lcd_data_bundle.lcd_r_dat;
+    assign lcd_g_dat = lcd_data_bundle.lcd_g_dat;
+    assign lcd_b_dat = lcd_data_bundle.lcd_b_dat;
+
+
+    display display (
         .display_clk             (disp_clk),
         .disp_rst                (disp_rst),
         .disp_cell_addr          (display_out_cell_addr),
         .disp_cell_addr_valid    (display_addr_valid),
         .disp_cell_state         (display_out_cell_state),
         .disp_cell_state_valid   (display_out_valid),
-        .playpause               (playpause),
+        .playpause               (play_pause),
         .display_buf_change_ready(display_buf_change_ready),
         .display_buf_change_req  (display_buf_change_ack),
-        .screen_ovrd             (sw_5),
-        .display_data            (lcd_dat),
+        .screen_ovrd             (disp_ovrd),
+        .display_data            (lcd_data_bundle),
         .lcd_vsync               (lcd_vsync),
         .lcd_hsync               (lcd_hsync),
         .lcd_pixclk              (lcd_clk),

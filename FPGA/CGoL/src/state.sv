@@ -29,7 +29,8 @@ module state #(
 
     //? Buffer management follows calculation clock (as its the fastest (should be))
 
-
+    logic [1:0] reg_display_out_valid;
+    assign display_out_valid = reg_display_out_valid[1];
 
     logic current_display_buffer;
     logic display_buffer_display;
@@ -53,8 +54,10 @@ module state #(
 
     typedef enum {
         INIT,
-        WAIT_CALCULATION,  //when next buf not ready
-        WAIT_DISPLAY  // when at least 1 buffer ready
+        WAIT_CALCULATION,   //when next buf not ready
+        WAIT_DISPLAY,
+        WAIT_DISPLAY_READY
+        // when at least 1 buffer ready
     } BUFFER_STATE_e;
 
     BUFFER_STATE_e state;
@@ -91,12 +94,19 @@ module state #(
                     display_buf_change_ready <= 1'b1;
 
                     if (display_buf_change_ack_sync_2) begin
-                        display_buf_change_ready <= 1'b0;
-                        current_display_buffer   <= !current_display_buffer;
-                        state                    <= WAIT_CALCULATION;
+                        state <= WAIT_DISPLAY_READY;
                     end
 
                     calc_done_ack <= 1'b0;
+                end
+
+                WAIT_DISPLAY_READY: begin
+                    if (!display_buf_change_ack_sync_2) begin
+                        display_buf_change_ready <= 1'b0;
+                        current_display_buffer   <= !current_display_buffer;
+                        display_buffer_display   <= !display_buffer_display;
+                        state <= WAIT_CALCULATION;
+                    end
                 end
 
                 default: begin
@@ -108,16 +118,11 @@ module state #(
 
     always_ff @(posedge display_clk) begin
         if (rst) begin
-            display_buffer_display <= 1'b0;
-            display_out_valid      <= 1'b0;
+            reg_display_out_valid  <= '0;
         end else begin
-            display_out_valid <= display_out_cell_addr_valid;
-            if (display_buf_change_ack) begin
-                display_buffer_display <= !display_buffer_display;
-            end
+            reg_display_out_valid <= {reg_display_out_valid[0], display_out_cell_addr_valid};
         end
     end
-
 
 
     always_comb begin : buffer_mux_comb
@@ -152,7 +157,7 @@ module state #(
                 valid             = 0;
             end
 
-            WAIT_CALCULATION, WAIT_DISPLAY: begin
+            WAIT_CALCULATION, WAIT_DISPLAY, WAIT_DISPLAY_READY: begin
                 if (current_display_buffer == 1) begin  //! writes to buf1, reads from buf2
                     buf1_calc_we           = calc_we;
                     buf1_calc_addr         = calc_cell_addr;

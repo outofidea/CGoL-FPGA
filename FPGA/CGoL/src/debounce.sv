@@ -1,7 +1,7 @@
 //! stolen from chipverify lol (and modified to use proper fpga resets)
 module debounce #(
-    parameter unsigned CLK_FREQ_HZ = 50_000_000,    // Clock frequency in Hz
-    parameter unsigned DEBOUNCE_TIME_MS = 20     // Debounce time in milliseconds
+    parameter CLK_FREQ_HZ = 50_000_000,    // Clock frequency in Hz
+    parameter DEBOUNCE_TIME_MS = 20     // Debounce time in milliseconds
 )(
     input wire clk,           // System clock
     input wire rst,         // Active low reset
@@ -20,7 +20,7 @@ module debounce #(
     // Double-flop synchronizer to avoid metastability
     always @(posedge clk) begin
         if (rst) begin
-            button_sync_0 <= 1'b0;
+            button_sync_0 <= 1'b0;  
             button_sync_1 <= 1'b0;
         end else begin
             button_sync_0 <= button_in;

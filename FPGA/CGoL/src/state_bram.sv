@@ -1,7 +1,7 @@
 import cell_address_package::*;
 module state_bram #(
-    parameter int unsigned WIDTH     = 480,
-    parameter int unsigned HEIGHT    = 272,
+    parameter int unsigned WIDTH     = 8,
+    parameter int unsigned HEIGHT    = 8,
     parameter string       INIT_FILE = "",
     parameter bit          INIT_FILL = 1
 ) (
@@ -20,8 +20,32 @@ module state_bram #(
 
 );
 
+    //! Standalone bram access delay should be 2 cyc 
+
+    function automatic int unsigned linear_address(input cell_address address);
+        // linear_address = (int'(address.cell_addr_y) << 9)
+        //            - (int'(address.cell_addr_y) << 5)
+        //            + int'(address.cell_addr_x);
+        linear_address = address.cell_addr_y * WIDTH + address.cell_addr_x;
+    endfunction
 
 
+    //? Pipelining regs cuz the linear addr map is crazy slow
+    logic reg_calc_we;
+    int unsigned reg_calc_addr;
+    logic reg_calc_data_in;
+
+    int unsigned reg_display_addr;
+
+    always_ff @(posedge calc_clk) begin
+        reg_calc_we      <= calc_we;
+        reg_calc_addr    <= linear_address(calc_addr);
+        reg_calc_data_in <= calc_data_in;
+    end
+
+    always_ff @(posedge display_clk) begin : blockName
+        reg_display_addr <= linear_address(display_addr);
+    end
 
     //BUFFER 1 
 
@@ -29,28 +53,18 @@ module state_bram #(
     logic mem_array[0:WIDTH * HEIGHT - 1];
     // verilator lint_on MULTIDRIVEN
 
+    int address;
     initial begin : memory_init
-        // for (int unsigned address = 0; address < WIDTH * HEIGHT; address++) begin
-        //     mem_array[address] = 1'b0;
-        // end
-        if (INIT_FILE != "") begin
-            $readmemb(INIT_FILE, mem_array);
-        end else if (INIT_FILL) begin
-            mem_array <= '{default:1};
-        end
-
+            for (address = 0; address < WIDTH * HEIGHT; address = address + 1) begin
+                mem_array[address] = 1'b1;
+            end
     end
 
-    function automatic int unsigned linear_address(input cell_address address);
-        // linear_address = (int'(address.cell_addr_y) << 9)
-        //            - (int'(address.cell_addr_y) << 5)
-        //            + int'(address.cell_addr_x);
-        linear_address = address.cell_addr_y * WIDTH + address.cell_addr_x;
-    endfunction  //! ima trust GPT on this one
+    //! ima trust GPT on this one
 
     always_ff @(posedge calc_clk) begin
-        if (calc_we) begin
-            mem_array[linear_address(calc_addr)] <= calc_data_in;
+        if (reg_calc_we) begin
+            mem_array[reg_calc_addr] <= reg_calc_data_in;
         end
         //! INSANE FUCKING FOOTGUN OMG
         //! read be4 write only avail. on single port
@@ -64,8 +78,8 @@ module state_bram #(
         if (rst) begin
             calc_data_out <= 0;
         end else begin
-            if (!calc_we) begin
-                calc_data_out <= mem_array[linear_address(calc_addr)];
+            if (!reg_calc_we) begin
+                calc_data_out <= mem_array[reg_calc_addr];
             end
         end
 
@@ -75,7 +89,7 @@ module state_bram #(
         if (rst) begin
             display_data_out <= 0;
         end else begin
-            display_data_out <= mem_array[linear_address(display_addr)];
+            display_data_out <= mem_array[reg_display_addr];
         end
     end
 

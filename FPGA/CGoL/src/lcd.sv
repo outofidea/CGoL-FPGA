@@ -16,26 +16,26 @@ module lcd #(
     parameter shortint unsigned V_BACK_PORCH_LINES  = 2
 
 ) (
-    input var logic i_clk,
-    input var logic i_rst,
+    input logic i_clk,
+    input logic i_rst,
 
-    input var logic [R_WIDTH-1:0] i_r,
-    input var logic [G_WIDTH-1:0] i_g,
-    input var logic [B_WIDTH-1:0] i_b,
+    input logic [R_WIDTH-1:0] i_r,
+    input logic [G_WIDTH-1:0] i_g,
+    input logic [B_WIDTH-1:0] i_b,
 
-    output var logic [$clog2(H_PIX)-1:0] lcd_cur_x,
-    output var logic [$clog2(V_PIX)-1:0] lcd_cur_y,
+    output logic [$clog2(H_PIX)-1:0] lcd_cur_x,
+    output logic [$clog2(V_PIX)-1:0] lcd_cur_y,
 
-    output var logic lcd_active,
+    output logic lcd_active,
 
-    output var logic [R_WIDTH-1:0] lcd_r,
-    output var logic [G_WIDTH-1:0] lcd_g,
-    output var logic [B_WIDTH-1:0] lcd_b,
-    output var logic               lcd_vsync,
-    output var logic               lcd_hsync,
-    output var logic               lcd_pixclk,
-    output var logic               lcd_de,
-    output var logic               lcd_frame_end
+    output logic [R_WIDTH-1:0] lcd_r,
+    output logic [G_WIDTH-1:0] lcd_g,
+    output logic [B_WIDTH-1:0] lcd_b,
+    output logic               v_back_porch,
+    output logic               lcd_vsync,
+    output logic               lcd_hsync,
+    output logic               lcd_pixclk,
+    output logic               lcd_de
 
 );
 
@@ -68,22 +68,21 @@ module lcd #(
 
     logic h_active;
     always_comb
-        h_active = (((line_pix_cnter) >= ((HSYNC_CLK
-        + H_BACK_PORCH_CLK))) && ((line_pix_cnter) < ((HSYNC_CLK + H_BACK_PORCH_CLK + H_PIX))));
+        h_active = (line_pix_cnter >= (HSYNC_CLK + H_BACK_PORCH_CLK)) && 
+        (line_pix_cnter < (HSYNC_CLK + H_BACK_PORCH_CLK + H_PIX));
 
-    logic v_back_porch;
-    always_comb
-        v_back_porch = (((line_cnter) >= (VSYNC_LINES)) && ((line_cnter) < ((VSYNC_LINES
-        + V_BACK_PORCH_LINES))));
+
+    assign v_back_porch = (line_cnter >= VSYNC_LINES) && (line_cnter < (VSYNC_LINES + V_BACK_PORCH_LINES));
 
     logic v_front_porch;
+
     always_comb
         v_front_porch = (((line_cnter) >= ((VSYNC_LINES + V_BACK_PORCH_LINES
         + V_PIX))) && ((line_cnter) < ((V_TOTAL_LINES))));
 
-    always_comb lcd_r = (((v_active & h_active)) ? (i_r) : ('0));
-    always_comb lcd_g = (((v_active & h_active)) ? (i_g) : ('0));
-    always_comb lcd_b = (((v_active & h_active)) ? (i_b) : ('0));
+    always_comb lcd_r = v_active & h_active ? i_r : '0;
+    always_comb lcd_g = v_active & h_active ? i_g : '0;
+    always_comb lcd_b = v_active & h_active ? i_b : '0;
     always_comb lcd_pixclk = i_clk & !i_rst;
     always_comb lcd_active = h_active & v_active;
 
@@ -95,38 +94,39 @@ module lcd #(
             vsync          <= 1;
             lcd_cur_x      <= 0;
             lcd_cur_y      <= 0;
-            lcd_frame_end  <= 1'b0;
         end else begin
-            lcd_frame_end <= 1'b0;
             case (1'b1)
+
                 line_pix_cnter < HSYNC_CLK: begin
                     hsync          <= 0;
                     line_pix_cnter <= line_pix_cnter + (1);
                 end
-                (((line_pix_cnter) >= (HSYNC_CLK)) && ((line_pix_cnter) < ((HSYNC_CLK + H_BACK_PORCH_CLK)))): begin
+
+                (line_pix_cnter >= HSYNC_CLK) && 
+                (line_pix_cnter < (HSYNC_CLK + H_BACK_PORCH_CLK)): begin
                     hsync          <= 1;
                     line_pix_cnter <= line_pix_cnter + (1);
                 end
-                (((line_pix_cnter) >= ((HSYNC_CLK + H_BACK_PORCH_CLK))) && ((line_pix_cnter) < ((HSYNC_CLK
-                    + H_BACK_PORCH_CLK + H_PIX)))): begin
+
+                (line_pix_cnter >= (HSYNC_CLK + H_BACK_PORCH_CLK)) && 
+                (line_pix_cnter < (HSYNC_CLK + H_BACK_PORCH_CLK + H_PIX)): begin
                     hsync <= 1;
                     if (v_active) begin
                         lcd_cur_x <= lcd_cur_x + (1);
                     end
                     line_pix_cnter <= line_pix_cnter + (1);
                 end
-                (((
-                line_pix_cnter) >= ((HSYNC_CLK + H_BACK_PORCH_CLK
-                    + H_PIX))) && ((line_pix_cnter) < (H_TOTAL_CLK))): begin
+
+
+                (line_pix_cnter >= (HSYNC_CLK + H_BACK_PORCH_CLK + H_PIX)) && (line_pix_cnter < H_TOTAL_CLK): begin
                     if ((line_pix_cnter == H_TOTAL_CLK - 1)) begin
                         line_pix_cnter <= 0;
                         if (line_cnter == V_TOTAL_LINES - 1) begin
-                            line_cnter    <= 0;
-                            lcd_frame_end <= 1'b1;
+                            line_cnter <= 0;
                         end else begin
                             line_cnter <= line_cnter + (1);
                         end
-                        lcd_cur_x      <= 0;
+                        lcd_cur_x <= 0;
                         if ((v_active)) begin
                             if ((lcd_cur_y == LAST_VISIBLE_Y)) begin
                                 lcd_cur_y <= 0;
@@ -144,12 +144,13 @@ module lcd #(
             endcase
 
             case (1'b1)
+
                 line_cnter < VSYNC_LINES: begin
                     vsync <= 0;
                 end
-                (((
-                line_cnter) >= (VSYNC_LINES + V_BACK_PORCH_LINES)) && ((line_cnter) < (VSYNC_LINES + V_BACK_PORCH_LINES
-                    + V_PIX))): begin
+
+                (line_cnter >= (VSYNC_LINES + V_BACK_PORCH_LINES)) && 
+                (line_cnter < (VSYNC_LINES + V_BACK_PORCH_LINES + V_PIX)): begin
                     vsync <= 1;
                 end
 

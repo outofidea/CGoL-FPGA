@@ -12,9 +12,12 @@ module top (
 
     output led2,
     led3,
-    input sw_5
+    input  sw_5,
+    sw_4
 
 );
+
+
     parameter WIDTH = 480;
     parameter HEIGHT = 272;
 
@@ -28,6 +31,7 @@ module top (
     logic calc_done, calc_done_ack;
 
     logic rst_but_debounce, sys_rst;
+
 
     Gowin_rPLL main_pll (
         .clkout(calc_clk),  //output clkout
@@ -45,6 +49,7 @@ module top (
         .button_in (!rst_but_n),
         .button_out(rst_but_debounce)
     );
+
 
     assign sys_rst = !pll_lock | rst_but_debounce;
 
@@ -90,7 +95,28 @@ module top (
         display_out_cell_state,
         display_out_valid,
         display_addr_valid;
-    logic display_frame_end;
+
+    logic disp_ovrd, play_pause;
+
+    debounce #(
+        .CLK_FREQ_HZ     (10_125_000),
+        .DEBOUNCE_TIME_MS(  /* default 20 */)
+    ) disp_override_debounce (
+        .rst       (!pll_lock),
+        .clk       (disp_clk),
+        .button_in (sw_5),
+        .button_out(disp_ovrd)
+    );
+
+    debounce #(
+        .CLK_FREQ_HZ     (10_125_000),
+        .DEBOUNCE_TIME_MS(  /* default 20 */)
+    ) play_pause_debounce (
+        .rst       (!pll_lock),
+        .clk       (disp_clk),
+        .button_in (sw_4),
+        .button_out(play_pause)
+    );
 
     display display (
         .display_clk             (disp_clk),
@@ -99,16 +125,15 @@ module top (
         .disp_cell_addr_valid    (display_addr_valid),
         .disp_cell_state         (display_out_cell_state),
         .disp_cell_state_valid   (display_out_valid),
-        .playpause               (1'b0),
+        .playpause               (play_pause),
         .display_buf_change_ready(display_buf_change_ready),
-        .display_buf_change_ack  (display_buf_change_ack),
-        .screen_ovrd             (sw_5),
+        .display_buf_change_req  (display_buf_change_ack),
+        .screen_ovrd             (disp_ovrd),
         .display_data            (lcd_dat),
         .lcd_vsync               (lcd_vsync),
         .lcd_hsync               (lcd_hsync),
         .lcd_pixclk              (lcd_clk),
-        .lcd_de                  (lcd_de),
-        .lcd_frame_end           (display_frame_end)
+        .lcd_de                  (lcd_de)
     );
 
 

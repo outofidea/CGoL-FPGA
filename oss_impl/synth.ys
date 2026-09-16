@@ -1,0 +1,3 @@
+read_verilog -lib +/gowin/cells_sim.v
+read_slang -f yosys_sources.list
+synth_gowin -json synth.json -nodsp
